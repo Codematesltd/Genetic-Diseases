@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Genetic Disease Predictor - {% block title %}{% endblock %}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <style>
+        /* Custom styles */
+        .nav-link {
+            position: relative;
+        }
+        .nav-link::after {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 2px;
+            bottom: 0;
+            left: 0;
+            background-color: white;
+            transform: scaleX(0);
+            transition: transform 0.3s;
+        }
+        .nav-link:hover::after {
+            transform: scaleX(1);
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex flex-col min-h-screen">
+    <!-- Navigation -->
+    <nav class="bg-blue-600 shadow-lg">
+        <div class="max-w-6xl mx-auto px-4">
+            <div class="flex justify-between">
+                <div class="flex space-x-7">
+                    <div>
+                        <a href="{{ url_for('home') }}" class="flex items-center py-4">
+                            <i class="fas fa-dna text-white text-2xl mr-2"></i>
+                            <span class="font-semibold text-white text-lg">Genetic Disease Predictor</span>
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Desktop Navigation -->
+                <div class="hidden md:flex items-center space-x-4">
+                    <a href="{{ url_for('home') }}" class="nav-link py-4 px-2 text-white hover:text-gray-200 transition-all">
+                        <i class="fas fa-home mr-1"></i> Home
+                    </a>
+                    <a href="{{ url_for('diseases') }}" class="nav-link py-4 px-2 text-white hover:text-gray-200 transition-all">
+                        <i class="fas fa-book-medical mr-1"></i> Diseases
+                    </a>
+                    <a href="{{ url_for('predict') }}" class="nav-link py-4 px-2 text-white hover:text-gray-200 transition-all">
+                        <i class="fas fa-chart-line mr-1"></i> Predict
+                    </a>
+                    <a href="{{ url_for('contact') }}" class="nav-link py-4 px-2 text-white hover:text-gray-200 transition-all">
+                        <i class="fas fa-envelope mr-1"></i> Contact
+                    </a>
+                </div>
+
+                <!-- Mobile Navigation Button -->
+                <div class="md:hidden flex items-center">
+                    <button class="mobile-menu-button text-white hover:text-gray-200">
+                        <i class="fas fa-bars text-2xl"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mobile Navigation Menu -->
+        <div class="mobile-menu hidden md:hidden">
+            <a href="{{ url_for('home') }}" class="block py-2 px-4 text-white hover:bg-blue-700">
+                <i class="fas fa-home mr-1"></i> Home
+            </a>
+            <a href="{{ url_for('diseases') }}" class="block py-2 px-4 text-white hover:bg-blue-700">
+                <i class="fas fa-book-medical mr-1"></i> Diseases
+            </a>
+            <a href="{{ url_for('predict') }}" class="block py-2 px-4 text-white hover:bg-blue-700">
+                <i class="fas fa-chart-line mr-1"></i> Predict
+            </a>
+            <a href="{{ url_for('contact') }}" class="block py-2 px-4 text-white hover:bg-blue-700">
+                <i class="fas fa-envelope mr-1"></i> Contact
+            </a>
+        </div>
+    </nav>
+
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="max-w-6xl mx-auto px-4 mt-4">
+                {% for category, message in messages %}
+                    <div class="p-4 mb-4 rounded-lg {% if category == 'error' %}bg-red-100 text-red-700{% else %}bg-green-100 text-green-700{% endif %}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    <!-- Content -->
+    <main class="flex-grow">
+        <div class="container mx-auto px-4 py-8">
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-blue-600 text-white mt-auto">
+        <div class="container mx-auto px-4 py-8">
+            <div class="grid md:grid-cols-3 gap-8">
+                <div>
+                    <h3 class="text-lg font-semibold mb-4">About Us</h3>
+                    <p class="text-sm">
+                        The Genetic Disease Predictor is a research tool designed by <a href="https://www.codemates.in/" class="text-red-300">CodematesLTD</a> to help understand and assess genetic disease risks
+                        using advanced machine learning techniques.
+                    </p>
+                </div>
+                <div>
+                    <h3 class="text-lg font-semibold mb-4">Quick Links</h3>
+                    <ul class="space-y-2 text-sm">
+                        <li><a href="{{ url_for('home') }}" class="hover:text-gray-200">Home</a></li>
+                        <li><a href="{{ url_for('diseases') }}" class="hover:text-gray-200">Disease Explorer</a></li>
+                        <li><a href="{{ url_for('predict') }}" class="hover:text-gray-200">Risk Prediction</a></li>
+                        <li><a href="{{ url_for('contact') }}" class="hover:text-gray-200">Contact Us</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h3 class="text-lg font-semibold mb-4">Disclaimer</h3>
+                    <p class="text-sm">
+                        This tool is for research and educational purposes only. Always consult healthcare professionals for 
+                        medical advice and diagnosis.
+                    </p>
+                </div>
+            </div>
+            <div class="border-t border-blue-500 mt-8 pt-4 text-sm text-center">
+                <p>&copy; 2025 <a href="https://codemates.in" class="text-red-200"> Codemates LTD. </a>  All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Mobile Navigation Script -->
+    <script>
+        const mobileMenuButton = document.querySelector('.mobile-menu-button');
+        const mobileMenu = document.querySelector('.mobile-menu');
+
+        mobileMenuButton.addEventListener('click', () => {
+            mobileMenu.classList.toggle('hidden');
+        });
+    </script>
+</body>
+</html>

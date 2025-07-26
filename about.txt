@@ -1,0 +1,37 @@
+# Genetic Disease Prediction - Model README
+
+## ✅ Project Description
+This project uses a machine learning model to predict one of five genetic diseases based on biomedical test features.  
+The model is trained on a synthetic yet realistic dataset and achieves ~95% accuracy.
+
+### Predicted Diseases:
+0 → Thalassemia  
+1 → Hemophilia  
+2 → Breast Cancer  
+3 → Sickle Cell Anemia  
+4 → Cystic Fibrosis
+
+---
+
+## 📂 Files Included
+
+- `disease_predictor_model.pkl`  
+  → Trained RandomForest model (used for predictions)
+
+
+## 🧠 Input Features (in order)
+
+| No | Feature Name          | Type      | Description                            |
+|----|------------------------|-----------|----------------------------------------|
+| 1  | `Age`                 | int       | Patient age (10–70)                    |
+| 2  | `Gender`              | int       | 0 = Male, 1 = Female                   |
+| 3  | `Family_History`      | int       | 0 = No, 1 = Yes                        |
+| 4  | `Hemoglobin`          | float     | g/dL                                   |
+| 5  | `Fetal_Hemoglobin`    | float     | % (high in Thalassemia/Sickle Cell)   |
+| 6  | `RDW_CV`              | float     | % (Red Cell Width - variability)      |
+| 7  | `Serum_Ferritin`      | float     | ng/mL                                  |
+| 8  | `BRCA1_Expression`    | float     | 0.0–1.0 (higher in breast cancer)     |
+| 9  | `p53_Mutation`        | int       | 0 = Normal, 1 = Mutated (oncogene)     |
+| 10 | `Sweat_Chloride`      | float     | mmol/L (used for CF detection)        |
+| 11 | `Sickled_RBC_Percent` | float     | % (elevated in sickle cell anemia)    |
+| 12 | `IL6_Level`           | float     | pg/mL (inflammation marker)           |

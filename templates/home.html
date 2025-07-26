@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+
+{% block title %}Home{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <!-- Hero Section -->
+    <div class="text-center mb-12">
+        <h1 class="text-4xl font-bold text-gray-800 mb-4">Understanding Genetic Diseases</h1>
+        <p class="text-xl text-gray-600">Exploring the impact of genetic disorders on global health through AI-powered analysis</p>
+    </div>
+
+    <!-- Main Content -->
+    <div class="grid md:grid-cols-2 gap-8">
+        <!-- Introduction Section -->
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <h2 class="text-2xl font-semibold text-gray-800 mb-4">What are Genetic Diseases?</h2>
+            <p class="text-gray-600 mb-4">
+                Genetic diseases are disorders caused by changes (mutations) in genes or chromosomes. These conditions can be:
+            </p>
+            <ul class="list-disc list-inside text-gray-600 mb-4">
+                <li>Inherited from parents</li>
+                <li>Developed during a person's lifetime</li>
+                <li>Present at birth (congenital)</li>
+                <li>Manifested later in life</li>
+            </ul>
+            <p class="text-gray-600">
+                Understanding these conditions is crucial for early detection, prevention, and treatment strategies.
+            </p>
+        </div>
+
+        <!-- AI/ML Section -->
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <h2 class="text-2xl font-semibold text-gray-800 mb-4">AI in Genetic Disease Diagnosis</h2>
+            <p class="text-gray-600 mb-4">
+                Modern artificial intelligence and machine learning techniques are revolutionizing how we:
+            </p>
+            <ul class="list-disc list-inside text-gray-600 mb-4">
+                <li>Predict disease risks</li>
+                <li>Analyze genetic patterns</li>
+                <li>Identify potential treatments</li>
+                <li>Personalize medical care</li>
+            </ul>
+            <p class="text-gray-600">
+                Our platform uses advanced ML algorithms to help assess genetic disease risks based on various factors.
+            </p>
+        </div>
+    </div>
+
+    <!-- Call to Action -->
+    <div class="text-center mt-12">
+        <a href="{{ url_for('predict') }}" class="inline-block bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors">
+            Try Disease Risk Prediction
+        </a>
+    </div>
+
+    <!-- Features Section -->
+    <div class="mt-16">
+        <h2 class="text-3xl font-semibold text-gray-800 mb-8 text-center">Key Features</h2>
+        <div class="grid md:grid-cols-3 gap-6">
+            <!-- Disease Explorer -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h3 class="text-xl font-semibold text-gray-800 mb-3">Disease Explorer</h3>
+                <p class="text-gray-600">Browse and learn about various genetic diseases, their symptoms, causes, and treatments.</p>
+            </div>
+
+            <!-- Risk Prediction -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h3 class="text-xl font-semibold text-gray-800 mb-3">Risk Prediction</h3>
+                <p class="text-gray-600">Use our ML-powered tool to assess potential genetic disease risks based on various factors.</p>
+            </div>
+
+            <!-- Expert Information -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h3 class="text-xl font-semibold text-gray-800 mb-3">Expert Information</h3>
+                <p class="text-gray-600">Access comprehensive, up-to-date information about genetic diseases and treatments.</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+
+{% block title %}{{ disease.name }}{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <!-- Navigation -->
+    <div class="mb-8">
+        <a href="{{ url_for('diseases') }}" class="text-blue-600 hover:text-blue-800">
+            ← Back to Disease Explorer
+        </a>
+    </div>
+
+    <!-- Disease Header -->
+    <div class="bg-white rounded-lg shadow-md p-8 mb-8">
+        <h1 class="text-4xl font-bold text-gray-800 mb-4">{{ disease.name }}</h1>
+        <span class="inline-block bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-semibold mb-4">
+            {{ disease.inheritance_pattern }}
+        </span>
+        <p class="text-xl text-gray-600">{{ disease.description }}</p>
+    </div>
+
+    <!-- Disease Details -->
+    <div class="grid md:grid-cols-2 gap-8">
+        <!-- Symptoms and Risk Factors -->
+        <div>
+            <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+                <h2 class="text-2xl font-semibold text-gray-800 mb-4">Symptoms</h2>
+                <ul class="list-disc list-inside text-gray-600">
+                    {% for symptom in disease.symptoms %}
+                    <li>{{ symptom }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-2xl font-semibold text-gray-800 mb-4">Risk Factors</h2>
+                <ul class="list-disc list-inside text-gray-600">
+                    {% for factor in disease.risk_factors %}
+                    <li>{{ factor }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+
+        <!-- Genetics and Prevalence -->
+        <div>
+            <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+                <h2 class="text-2xl font-semibold text-gray-800 mb-4">Genetic Information</h2>
+                <div class="prose text-gray-600">
+                    <p><strong>Inheritance Pattern:</strong> {{ disease.inheritance_pattern }}</p>
+                    <p><strong>Gene Involved:</strong> {{ disease.gene_involved }}</p>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-2xl font-semibold text-gray-800 mb-4">Prevalence</h2>
+                <div class="prose text-gray-600">
+                    <p>{{ disease.prevalence }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Prediction Tool Link -->
+    <div class="bg-blue-50 rounded-lg shadow-md p-8 mt-8">
+        <h2 class="text-2xl font-semibold text-gray-800 mb-4">Want to Know Your Risk?</h2>
+        <p class="text-gray-600 mb-4">
+            Use our AI-powered prediction tool to assess your potential risk factors for genetic diseases.
+        </p>
+        <a href="{{ url_for('predict') }}"
+            class="inline-block bg-blue-600 text-white px-6 py-3 rounded-md hover:bg-blue-700 transition-colors">
+            Try Risk Assessment Tool
+        </a>
+    </div>
+</div>
+{% endblock %}
