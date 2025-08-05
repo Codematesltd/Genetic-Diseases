@@ -1,0 +1,6 @@
+flask
+numpy
+pandas
+joblib
+supabase
+werkzeug

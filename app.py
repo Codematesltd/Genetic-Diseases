@@ -1,10 +1,26 @@
-from flask import Flask, render_template, request, redirect, url_for, flash
+from flask import Flask, render_template, request, redirect, url_for, flash, session
+from functools import wraps
 import joblib
 import numpy as np
 import pandas as pd
+from models import User, supabase
 
 app = Flask(__name__)
 app.secret_key = "supersecretkey"
+
+# Custom login required decorator
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user' not in session:
+            return redirect(url_for('login', next=request.url))
+        return f(*args, **kwargs)
+    return decorated_function
+
+def current_user():
+    if 'user' in session:
+        return session['user']
+    return None
 
 # Load model
 model = joblib.load("disease_predictor_model.pkl")
@@ -72,15 +88,80 @@ disease_info = [
     }
 ]
 
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if 'user' in session:
+        return redirect(url_for('home'))
+    
+    if request.method == "POST":
+        email = request.form.get('email')
+        password = request.form.get('password')
+        
+        try:
+            auth_response = User.login(email, password)
+            if auth_response.user:
+                user_data = User.get_user_by_id(auth_response.user.id)
+                session['user'] = user_data
+                next_page = request.args.get('next')
+                return redirect(next_page or url_for('home'))
+        except Exception as e:
+            flash('Invalid email or password', 'error')
+    
+    return render_template('login.html')
+
+@app.route("/signup", methods=["GET", "POST"])
+def signup():
+    if 'user' in session:
+        return redirect(url_for('home'))
+    
+    if request.method == "POST":
+        username = request.form.get('username')
+        email = request.form.get('email')
+        password = request.form.get('password')
+        confirm_password = request.form.get('confirm_password')
+        first_name = request.form.get('first_name')
+        last_name = request.form.get('last_name')
+        
+        if password != confirm_password:
+            flash('Passwords do not match', 'error')
+            return render_template('signup.html')
+        
+        try:
+            user = User.create_user(
+                email=email,
+                password=password,
+                username=username,
+                first_name=first_name,
+                last_name=last_name
+            )
+            flash('Registration successful! Please login.', 'success')
+            return redirect(url_for('login'))
+        except Exception as e:
+            flash(str(e), 'error')
+            return render_template('signup.html')
+    
+    return render_template('signup.html')
+
+@app.route("/logout")
+@login_required
+def logout():
+    User.logout()
+    session.pop('user', None)
+    return redirect(url_for('home'))
+
 @app.route("/")
 def home():
+    if 'user' not in session:
+        return redirect(url_for('login'))
     return render_template("home.html")
 
 @app.route("/diseases")
+@login_required
 def diseases():
     return render_template("disease_explorer.html", diseases=disease_info)
 
 @app.route("/disease/<int:id>")
+@login_required
 def disease_detail(id):
     disease = next((d for d in disease_info if d["id"] == id), None)
     if not disease:
@@ -89,6 +170,7 @@ def disease_detail(id):
     return render_template("disease_detail.html", disease=disease)
 
 @app.route("/predict", methods=["GET", "POST"])
+@login_required
 def predict():
     result = None
     prediction = None
@@ -100,22 +182,22 @@ def predict():
             age = float(request.form.get("age", 0)) / 100  # Normalize age to 0-1 range
             gender = int(request.form.get("gender", 1))
             family_history = int(request.form.get("family_history", 0))
-            
+
             # Clinical markers
             hemoglobin = min(float(request.form.get("hemoglobin", 0)), 1.0)  # Cap at 1.0
             fetal_hemoglobin = min(float(request.form.get("fetal_hemoglobin", 0)), 1.0)
             rdw_cv = min(float(request.form.get("rdw_cv", 0)), 1.0)
             serum_ferritin = min(float(request.form.get("serum_ferritin", 0)), 1.0)
-            
+
             # Genetic markers
             brca1_expression = min(float(request.form.get("brca1_expression", 0)), 1.0)
             p53_mutation = int(request.form.get("p53_mutation", 0))
-            
+
             # Disease-specific markers
             sweat_chloride = min(float(request.form.get("sweat_chloride", 0)), 1.0)
             sickled_rbc = min(float(request.form.get("sickled_rbc_percent", 0)), 1.0)
             il6_level = min(float(request.form.get("il6_level", 0)), 1.0)
-            
+
             # Create feature vector with normalized values
             features = [
                 age,
@@ -131,10 +213,17 @@ def predict():
                 sickled_rbc,
                 il6_level
             ]
-            # If your model expects more features, adjust accordingly.
             X = np.array(features).reshape(1, -1)
+            proba_all = model.predict_proba(X)[0]
             pred = model.predict(X)[0]
-            proba = model.predict_proba(X)[0][pred]
+            # Prevent breast cancer prediction for males
+            if gender == 1 and disease_labels.get(pred) == "Breast Cancer":
+                # Set probability of breast cancer to 0 and pick next highest
+                breast_cancer_idx = [k for k, v in disease_labels.items() if v == "Breast Cancer"]
+                if breast_cancer_idx:
+                    proba_all[breast_cancer_idx[0]] = 0
+                    pred = int(np.argmax(proba_all))
+            proba = proba_all[pred]
             prediction = pred
             probability = proba
             result = True
@@ -150,12 +239,40 @@ def predict():
                          disease_info=disease_info)
 
 @app.route("/contact", methods=["GET", "POST"])
+@login_required
 def contact():
     success = False
+    name = ""
+    email = ""
+    if 'user' in session:
+        name = f"{session['user'].get('first_name', '')} {session['user'].get('last_name', '')}".strip()
+        email = session['user'].get('email', '')
+
     if request.method == "POST":
-        # You can add email sending logic here
-        success = True
-    return render_template("contact.html", success=success)
+        try:
+            subject = request.form.get("subject")
+            message = request.form.get("message")
+            user_id = session['user']['id']
+            # Use pre-filled name and email
+            # If user edits, use form value
+            name = request.form.get("name", name)
+            email = request.form.get("email", email)
+
+            # Store in Supabase
+            supabase.table('contact_messages').insert({
+                "user_id": user_id,
+                "subject": subject,
+                "message": message,
+                "email": email,
+                "name": name
+            }).execute()
+            
+            success = True
+            flash("Your message has been sent successfully!", "success")
+        except Exception as e:
+            flash(f"Error sending message: {str(e)}", "error")
+            
+    return render_template("contact.html", success=success, name=name, email=email)
 
 if __name__ == "__main__":
     app.run(debug=True)
