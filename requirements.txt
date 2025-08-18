@@ -4,3 +4,4 @@ pandas
 joblib
 supabase
 werkzeug
+scikit-learn

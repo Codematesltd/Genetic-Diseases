@@ -4,6 +4,21 @@ import joblib
 import numpy as np
 import pandas as pd
 from models import User, supabase
+from dotenv import load_dotenv
+load_dotenv()
+import os
+from supabase import create_client
+
+def get_user_client():
+    client = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
+    token = session.get('access_token')
+    if token:
+        client.postgrest.auth(token)
+    return client
+
+SUPABASE_URL = os.environ.get("SUPABASE_URL")
+SUPABASE_ANON_KEY = os.environ.get("SUPABASE_KEY")
+
 
 app = Flask(__name__)
 app.secret_key = "supersecretkey"
@@ -102,6 +117,8 @@ def login():
             if auth_response.user:
                 user_data = User.get_user_by_id(auth_response.user.id)
                 session['user'] = user_data
+                # Store access token for authenticated requests
+                session['access_token'] = auth_response.session.access_token
                 next_page = request.args.get('next')
                 return redirect(next_page or url_for('home'))
         except Exception as e:
@@ -258,8 +275,9 @@ def contact():
             name = request.form.get("name", name)
             email = request.form.get("email", email)
 
-            # Store in Supabase
-            supabase.table('contact_messages').insert({
+            # Store in Supabase using authenticated client
+            user_client = get_user_client()
+            user_client.table('contact_messages').insert({
                 "user_id": user_id,
                 "subject": subject,
                 "message": message,
