@@ -12,11 +12,52 @@
 
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
-            {% for category, message in messages %}
-                <div class="mb-4 p-4 rounded-md {{ 'bg-red-100 text-red-700' if category == 'error' else 'bg-green-100 text-green-700' }}">
-                    {{ message }}
+            <!-- Alert Summary Box -->
+            <div class="mb-6 p-6 rounded-lg border-l-4 border-yellow-400 bg-yellow-50">
+                <div class="flex items-center mb-4">
+                    <svg class="w-6 h-6 text-yellow-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                    </svg>
+                    <h3 class="text-lg font-semibold text-yellow-800">Attention Required</h3>
                 </div>
-            {% endfor %}
+                <p class="text-yellow-700 mb-4">Some of your entered values are outside typical clinical ranges. While the prediction will still be made, please review the following:</p>
+                
+                <div class="space-y-2">
+                    {% for category, message in messages %}
+                        {% if category == 'error' %}
+                            <div class="p-3 rounded bg-red-100 text-red-700 flex items-start">
+                                <svg class="w-5 h-5 mr-2 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                </svg>
+                                <span>{{ message }}</span>
+                            </div>
+                        {% elif category == 'warning' %}
+                            <div class="p-3 rounded bg-yellow-100 text-yellow-700 flex items-start">
+                                <svg class="w-5 h-5 mr-2 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                                </svg>
+                                <span>{{ message }}</span>
+                            </div>
+                        {% else %}
+                            <div class="p-3 rounded bg-green-100 text-green-700 flex items-start">
+                                <svg class="w-5 h-5 mr-2 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                                </svg>
+                                <span>{{ message }}</span>
+                            </div>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+
+                <div class="mt-4 text-sm text-yellow-600">
+                    <p>Recommendations:</p>
+                    <ul class="list-disc list-inside mt-1">
+                        <li>Double-check your entered values</li>
+                        <li>Consult with your healthcare provider if values are correct</li>
+                        <li>Consider retaking measurements if unsure</li>
+                    </ul>
+                </div>
+            </div>
         {% endif %}
     {% endwith %}
 
@@ -26,10 +67,21 @@
         <div class="bg-white rounded-lg shadow-md p-6">
             <form method="POST" class="space-y-6" id="predictionForm">
                 <div>
-                    <label for="age" class="block text-sm font-medium text-gray-700">Age</label>
-                    <input type="number" name="age" id="age" required min="0" max="120" step="1"
-                        value="{{ form_data.age if form_data }}"
-                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                        <label for="age" class="block text-sm font-medium text-gray-700">Age <span class="text-gray-500">(years: 0–120)</span></label>
+                        <div class="relative mt-1">
+                            <input type="number" name="age" id="age" required min="0" max="120" step="1"
+                                value="{{ form_data.age if form_data }}"
+                                oninput="validateInput(this, 0, 120)"
+                                class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 pr-10">
+                            <div class="hidden absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none" id="age-warning">
+                                <svg class="h-5 w-5 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                                </svg>
+                            </div>
+                        </div>
+                        <p class="hidden mt-1 text-sm text-yellow-600" id="age-warning-text">
+                            Value is outside the typical range (0-120 years)
+                        </p>
                 </div>
                 <div>
                     <label for="gender" class="block text-sm font-medium text-gray-700">Gender</label>
@@ -48,34 +100,74 @@
                     </select>
                 </div>
                 <div>
-                    <label for="hemoglobin" class="block text-sm font-medium text-gray-700">Hemoglobin</label>
-                    <input type="number" name="hemoglobin" id="hemoglobin" required step="0.01"
-                        value="{{ form_data.hemoglobin if form_data }}"
-                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                    <label for="hemoglobin" class="block text-sm font-medium text-gray-700">Hemoglobin <span class="text-gray-500">(g/dL: 3.0–20.0)</span></label>
+                    <div class="relative mt-1">
+                        <input type="number" name="hemoglobin" id="hemoglobin" required min="3.0" max="20.0" step="0.01"
+                            value="{{ form_data.hemoglobin if form_data }}"
+                            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 pr-10">
+                        <div class="hidden absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none" id="hemoglobin-warning">
+                            <svg class="h-5 w-5 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                            </svg>
+                        </div>
+                    </div>
+                    <p class="hidden mt-1 text-sm text-yellow-600" id="hemoglobin-warning-text"></p>
                 </div>
                 <div>
-                    <label for="fetal_hemoglobin" class="block text-sm font-medium text-gray-700">Fetal Hemoglobin</label>
-                    <input type="number" name="fetal_hemoglobin" id="fetal_hemoglobin" required step="0.01"
-                        value="{{ form_data.fetal_hemoglobin if form_data }}"
-                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                    <label for="fetal_hemoglobin" class="block text-sm font-medium text-gray-700">Fetal Hemoglobin <span class="text-gray-500">(%: 0–100)</span></label>
+                    <div class="relative mt-1">
+                        <input type="number" name="fetal_hemoglobin" id="fetal_hemoglobin" required min="0" max="100" step="0.01"
+                            value="{{ form_data.fetal_hemoglobin if form_data }}"
+                            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 pr-10">
+                        <div class="hidden absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none" id="fetal_hemoglobin-warning">
+                            <svg class="h-5 w-5 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                            </svg>
+                        </div>
+                    </div>
+                    <p class="hidden mt-1 text-sm text-yellow-600" id="fetal_hemoglobin-warning-text"></p>
                 </div>
                 <div>
-                    <label for="rdw_cv" class="block text-sm font-medium text-gray-700">RDW_CV</label>
-                    <input type="number" name="rdw_cv" id="rdw_cv" required step="0.01"
-                        value="{{ form_data.rdw_cv if form_data }}"
-                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                    <label for="rdw_cv" class="block text-sm font-medium text-gray-700">RDW_CV <span class="text-gray-500">(%: 8–30)</span></label>
+                    <div class="relative mt-1">
+                        <input type="number" name="rdw_cv" id="rdw_cv" required min="8" max="30" step="0.01"
+                            value="{{ form_data.rdw_cv if form_data }}"
+                            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 pr-10">
+                        <div class="hidden absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none" id="rdw_cv-warning">
+                            <svg class="h-5 w-5 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                            </svg>
+                        </div>
+                    </div>
+                    <p class="hidden mt-1 text-sm text-yellow-600" id="rdw_cv-warning-text"></p>
                 </div>
                 <div>
-                    <label for="serum_ferritin" class="block text-sm font-medium text-gray-700">Serum Ferritin</label>
-                    <input type="number" name="serum_ferritin" id="serum_ferritin" required step="0.01"
-                        value="{{ form_data.serum_ferritin if form_data }}"
-                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                    <label for="serum_ferritin" class="block text-sm font-medium text-gray-700">Serum Ferritin <span class="text-gray-500">(ng/mL: 1–2000)</span></label>
+                    <div class="relative mt-1">
+                        <input type="number" name="serum_ferritin" id="serum_ferritin" required min="1" max="2000" step="0.01"
+                            value="{{ form_data.serum_ferritin if form_data }}"
+                            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 pr-10">
+                        <div class="hidden absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none" id="serum_ferritin-warning">
+                            <svg class="h-5 w-5 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                            </svg>
+                        </div>
+                    </div>
+                    <p class="hidden mt-1 text-sm text-yellow-600" id="serum_ferritin-warning-text"></p>
                 </div>
                 <div>
-                    <label for="brca1_expression" class="block text-sm font-medium text-gray-700">BRCA1 Expression</label>
-                    <input type="number" name="brca1_expression" id="brca1_expression" required step="0.01"
-                        value="{{ form_data.brca1_expression if form_data }}"
-                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                    <label for="brca1_expression" class="block text-sm font-medium text-gray-700">BRCA1 Expression <span class="text-gray-500">(normalized: 0–1)</span></label>
+                    <div class="relative mt-1">
+                        <input type="number" name="brca1_expression" id="brca1_expression" required min="0" max="1" step="0.01"
+                            value="{{ form_data.brca1_expression if form_data }}"
+                            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 pr-10">
+                        <div class="hidden absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none" id="brca1_expression-warning">
+                            <svg class="h-5 w-5 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                            </svg>
+                        </div>
+                    </div>
+                    <p class="hidden mt-1 text-sm text-yellow-600" id="brca1_expression-warning-text"></p>
                 </div>
                 <div>
                     <label for="p53_mutation" class="block text-sm font-medium text-gray-700">p53 Mutation</label>
@@ -86,20 +178,36 @@
                     </select>
                 </div>
                 <div>
-                    <label for="sweat_chloride" class="block text-sm font-medium text-gray-700">Sweat Chloride</label>
-                    <input type="number" name="sweat_chloride" id="sweat_chloride" required step="0.01"
-                        value="{{ form_data.sweat_chloride if form_data }}"
-                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                    <label for="sweat_chloride" class="block text-sm font-medium text-gray-700">Sweat Chloride <span class="text-gray-500">(mmol/L: 0–200)</span></label>
+                    <div class="relative mt-1">
+                        <input type="number" name="sweat_chloride" id="sweat_chloride" required min="0" max="200" step="0.01"
+                            value="{{ form_data.sweat_chloride if form_data }}"
+                            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 pr-10">
+                        <div class="hidden absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none" id="sweat_chloride-warning">
+                            <svg class="h-5 w-5 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                            </svg>
+                        </div>
+                    </div>
+                    <p class="hidden mt-1 text-sm text-yellow-600" id="sweat_chloride-warning-text"></p>
                 </div>
                 <div>
-                    <label for="sickled_rbc_percent" class="block text-sm font-medium text-gray-700">Sickled RBC Percent</label>
-                    <input type="number" name="sickled_rbc_percent" id="sickled_rbc_percent" required step="0.01"
-                        value="{{ form_data.sickled_rbc_percent if form_data }}"
-                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                    <label for="sickled_rbc_percent" class="block text-sm font-medium text-gray-700">Sickled RBC Percent <span class="text-gray-500">(%: 0–100)</span></label>
+                    <div class="relative mt-1">
+                        <input type="number" name="sickled_rbc_percent" id="sickled_rbc_percent" required min="0" max="100" step="0.01"
+                            value="{{ form_data.sickled_rbc_percent if form_data }}"
+                            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 pr-10">
+                        <div class="hidden absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none" id="sickled_rbc_percent-warning">
+                            <svg class="h-5 w-5 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                            </svg>
+                        </div>
+                    </div>
+                    <p class="hidden mt-1 text-sm text-yellow-600" id="sickled_rbc_percent-warning-text"></p>
                 </div>
                 <div>
-                    <label for="il6_level" class="block text-sm font-medium text-gray-700">IL6 Level</label>
-                    <input type="number" name="il6_level" id="il6_level" required step="0.01"
+                    <label for="il6_level" class="block text-sm font-medium text-gray-700">IL6 Level <span class="text-gray-500">(pg/mL: 0–1000)</span></label>
+                    <input type="number" name="il6_level" id="il6_level" required min="0" max="1000" step="0.01"
                         value="{{ form_data.il6_level if form_data }}"
                         class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
                 </div>
@@ -125,11 +233,20 @@
                 <!-- Risk Level -->
                 <div class="mb-6">
                     <h3 class="text-lg font-medium text-gray-700 mb-2">Risk Level</h3>
-                    <div class="text-3xl font-bold mb-2 {{ 'text-green-600' if not prediction else 'text-red-600' }}">
-                        {{ 'Low Risk' if not prediction else 'High Risk' }}
+                    <div class="text-3xl font-bold mb-2 
+                        {% if risk_level == 'Very Low' %}text-green-600
+                        {% elif risk_level == 'Low' %}text-green-500
+                        {% elif risk_level == 'Moderate' %}text-yellow-500
+                        {% elif risk_level == 'High' %}text-red-500
+                        {% else %}text-red-600{% endif %}">
+                        {{ risk_level if risk_level else 'Unknown' }} Risk
                     </div>
                     <div class="text-gray-600">
-                        Confidence: {{ "%.1f"|format(probability * 100) }}%
+                        Model Confidence: {{ "%.1f"|format(probability * 100) if probability else 0 }}%
+                    </div>
+                    <div class="mt-2 text-sm text-gray-500">
+                        This assessment considers multiple factors including clinical markers, 
+                        family history, and disease-specific indicators.
                     </div>
                 </div>
 
@@ -182,35 +299,52 @@
 
 <!-- Form Validation -->
 <script>
-document.getElementById('predictionForm').addEventListener('submit', function(e) {
-    const age = document.getElementById('age').value;
-    const cholesterol = document.getElementById('cholesterol').value;
-    const bloodPressure = document.getElementById('blood_pressure').value;
-    const geneticScore = document.getElementById('genetic_risk_score').value;
+const ranges = {
+    'age': { min: 0, max: 120, unit: 'years' },
+    'hemoglobin': { min: 3.0, max: 20.0, unit: 'g/dL' },
+    'fetal_hemoglobin': { min: 0, max: 100, unit: '%' },
+    'rdw_cv': { min: 8, max: 30, unit: '%' },
+    'serum_ferritin': { min: 1, max: 2000, unit: 'ng/mL' },
+    'brca1_expression': { min: 0, max: 1, unit: 'normalized' },
+    'sweat_chloride': { min: 0, max: 200, unit: 'mmol/L' },
+    'sickled_rbc_percent': { min: 0, max: 100, unit: '%' },
+    'il6_level': { min: 0, max: 1000, unit: 'pg/mL' }
+};
+
+function validateInput(input, min, max) {
+    const value = parseFloat(input.value);
+    const warningIcon = document.getElementById(`${input.id}-warning`);
+    const warningText = document.getElementById(`${input.id}-warning-text`);
+    const range = ranges[input.id];
     
-    let isValid = true;
-    let message = '';
-    
-    if (age < 0 || age > 120) {
-        message = 'Please enter a valid age between 0 and 120.';
-        isValid = false;
+    if (value < min || value > max) {
+        input.classList.add('border-yellow-300');
+        input.classList.add('bg-yellow-50');
+        warningIcon.classList.remove('hidden');
+        warningText.classList.remove('hidden');
+        warningText.textContent = `Value should be between ${min}–${max} ${range ? range.unit : ''}`;
+    } else {
+        input.classList.remove('border-yellow-300');
+        input.classList.remove('bg-yellow-50');
+        warningIcon.classList.add('hidden');
+        warningText.classList.add('hidden');
     }
-    else if (cholesterol < 100 || cholesterol > 500) {
-        message = 'Please enter a valid cholesterol level between 100 and 500 mg/dL.';
-        isValid = false;
+}
+
+// Initialize all numeric inputs with validation
+document.querySelectorAll('input[type="number"]').forEach(input => {
+    if (ranges[input.id]) {
+        const { min, max } = ranges[input.id];
+        input.addEventListener('input', () => validateInput(input, min, max));
+        // Initial validation
+        validateInput(input, min, max);
     }
-    else if (bloodPressure < 70 || bloodPressure > 250) {
-        message = 'Please enter a valid systolic blood pressure between 70 and 250.';
-        isValid = false;
-    }
-    else if (geneticScore < 0 || geneticScore > 100) {
-        message = 'Please enter a valid genetic risk score between 0 and 100.';
-        isValid = false;
-    }
-    
-    if (!isValid) {
-        e.preventDefault();
-        alert(message);
+});
+
+// Reset form on page load if not POST (refresh or back navigation)
+window.addEventListener('pageshow', function(event) {
+    if (event.persisted || performance.navigation.type === 1) {
+        document.getElementById('predictionForm').reset();
     }
 });
 </script>

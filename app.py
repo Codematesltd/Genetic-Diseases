@@ -9,12 +9,7 @@ load_dotenv()
 import os
 from supabase import create_client
 
-def get_user_client():
-    client = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
-    token = session.get('access_token')
-    if token:
-        client.postgrest.auth(token)
-    return client
+
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_ANON_KEY = os.environ.get("SUPABASE_KEY")
@@ -114,15 +109,23 @@ def login():
         
         try:
             auth_response = User.login(email, password)
-            if auth_response.user:
-                user_data = User.get_user_by_id(auth_response.user.id)
-                session['user'] = user_data
-                # Store access token for authenticated requests
+            if auth_response and auth_response.user:
+                # Store the complete session data
                 session['access_token'] = auth_response.session.access_token
-                next_page = request.args.get('next')
-                return redirect(next_page or url_for('home'))
+                session['refresh_token'] = auth_response.session.refresh_token
+                
+                # Get and store user data
+                user_data = User.get_user_by_id(auth_response.user.id)
+                if user_data:
+                    session['user'] = user_data
+                    next_page = request.args.get('next')
+                    return redirect(next_page or url_for('home'))
+                else:
+                    raise Exception("Failed to fetch user data")
+            else:
+                flash('Invalid email or password', 'error')
         except Exception as e:
-            flash('Invalid email or password', 'error')
+            flash(str(e), 'error')
     
     return render_template('login.html')
 
@@ -193,49 +196,75 @@ def predict():
     prediction = None
     probability = None
     form_data = None
+    result = None
+    prediction = None
+    probability = None
+    form_data = None
     if request.method == "POST":
         try:
-            # Normalize and preprocess input features
-            age = float(request.form.get("age", 0)) / 100  # Normalize age to 0-1 range
+            # Get raw input values
+            age = float(request.form.get("age", 0))
             gender = int(request.form.get("gender", 1))
             family_history = int(request.form.get("family_history", 0))
-
-            # Clinical markers
-            hemoglobin = min(float(request.form.get("hemoglobin", 0)), 1.0)  # Cap at 1.0
-            fetal_hemoglobin = min(float(request.form.get("fetal_hemoglobin", 0)), 1.0)
-            rdw_cv = min(float(request.form.get("rdw_cv", 0)), 1.0)
-            serum_ferritin = min(float(request.form.get("serum_ferritin", 0)), 1.0)
-
-            # Genetic markers
-            brca1_expression = min(float(request.form.get("brca1_expression", 0)), 1.0)
+            hemoglobin = float(request.form.get("hemoglobin", 0))
+            fetal_hemoglobin = float(request.form.get("fetal_hemoglobin", 0))
+            rdw_cv = float(request.form.get("rdw_cv", 0))
+            serum_ferritin = float(request.form.get("serum_ferritin", 0))
+            brca1_expression = float(request.form.get("brca1_expression", 0))
             p53_mutation = int(request.form.get("p53_mutation", 0))
+            sweat_chloride = float(request.form.get("sweat_chloride", 0))
+            sickled_rbc = float(request.form.get("sickled_rbc_percent", 0))
+            il6_level = float(request.form.get("il6_level", 0))
 
-            # Disease-specific markers
-            sweat_chloride = min(float(request.form.get("sweat_chloride", 0)), 1.0)
-            sickled_rbc = min(float(request.form.get("sickled_rbc_percent", 0)), 1.0)
-            il6_level = min(float(request.form.get("il6_level", 0)), 1.0)
+            # Flag (not reject) out-of-range values
+            warnings = []
+            if not (0 <= age <= 120): warnings.append("Unusual age: please check entry (years: 0–120).")
+            if gender not in [0, 1]: warnings.append("Gender must be 0 (Female) or 1 (Male).")
+            if family_history not in [0, 1]: warnings.append("Family history must be 0 or 1.")
+            if not (3.0 <= hemoglobin <= 20.0): warnings.append("Hemoglobin outside typical range (3–20 g/dL).")
+            if not (0 <= fetal_hemoglobin <= 100): warnings.append("Fetal Hemoglobin % outside typical range (0–100%).")
+            if not (8 <= rdw_cv <= 30): warnings.append("RDW-CV outside typical range (8–30%).")
+            if not (1 <= serum_ferritin <= 2000): warnings.append("Serum Ferritin outside typical range (1–2000 ng/mL).")
+            if not (0 <= brca1_expression <= 1): warnings.append("BRCA1 expression outside 0–1 (check units).")
+            if p53_mutation not in [0, 1]: warnings.append("p53 mutation must be 0 or 1.")
+            if not (0 <= sweat_chloride <= 200): warnings.append("Sweat chloride outside typical range (0–200 mmol/L).")
+            if not (0 <= sickled_rbc <= 100): warnings.append("Sickled RBC % outside 0–100%.")
+            if not (0 <= il6_level <= 1000): warnings.append("IL-6 outside typical range (0–1000 pg/mL).")
 
-            # Create feature vector with normalized values
-            features = [
-                age,
-                gender,
-                family_history,
-                hemoglobin,
-                fetal_hemoglobin,
-                rdw_cv,
-                serum_ferritin,
-                brca1_expression,
-                p53_mutation,
-                sweat_chloride,
-                sickled_rbc,
-                il6_level
-            ]
-            X = np.array(features).reshape(1, -1)
+            for warn in warnings:
+                flash(warn, "warning")
+
+            # Normalize for model input
+            age_norm = age / 100
+            hemoglobin_norm = (hemoglobin - 6) / (9.5 - 6)
+            fetal_hemoglobin_norm = (fetal_hemoglobin - 7) / (18 - 7)
+            rdw_cv_norm = (rdw_cv - 13) / (21 - 13)
+            serum_ferritin_norm = (serum_ferritin - 20) / (60 - 20)
+            brca1_expression_norm = brca1_expression / 0.4
+            sweat_chloride_norm = (sweat_chloride - 30) / (60 - 30)
+            sickled_rbc_norm = sickled_rbc / 2
+            il6_level_norm = (il6_level - 1) / (9 - 1)
+
+            # Create features with column names matching training data
+            features_dict = {
+                'Age': age_norm,
+                'Gender': gender,
+                'Family_History': family_history,
+                'Hemoglobin': hemoglobin_norm,
+                'Fetal_Hemoglobin': fetal_hemoglobin_norm,
+                'RDW_CV': rdw_cv_norm,
+                'Serum_Ferritin': serum_ferritin_norm,
+                'BRCA1_Expression': brca1_expression_norm,
+                'p53_Mutation': p53_mutation,
+                'Sweat_Chloride': sweat_chloride_norm,
+                'Sickled_RBC_Percent': sickled_rbc_norm,
+                'IL6_Level': il6_level_norm
+            }
+            X = pd.DataFrame([features_dict])
             proba_all = model.predict_proba(X)[0]
             pred = model.predict(X)[0]
             # Prevent breast cancer prediction for males
             if gender == 1 and disease_labels.get(pred) == "Breast Cancer":
-                # Set probability of breast cancer to 0 and pick next highest
                 breast_cancer_idx = [k for k, v in disease_labels.items() if v == "Breast Cancer"]
                 if breast_cancer_idx:
                     proba_all[breast_cancer_idx[0]] = 0
@@ -243,15 +272,92 @@ def predict():
             proba = proba_all[pred]
             prediction = pred
             probability = proba
+            
+            # Calculate risk level based on multiple factors
+            def calculate_risk_level(prob, warnings_count, family_hist, disease_specific_factors):
+                # Base risk from probability
+                if prob < 0.2:
+                    risk = "Very Low"
+                elif prob < 0.4:
+                    risk = "Low"
+                elif prob < 0.6:
+                    risk = "Moderate"
+                elif prob < 0.8:
+                    risk = "High"
+                else:
+                    risk = "Very High"
+                
+                # Adjust for number of out-of-range values
+                if warnings_count >= 3:
+                    risk = "High" if risk == "Moderate" else risk
+                
+                # Adjust for family history
+                if family_hist == 1 and risk in ["Low", "Moderate"]:
+                    risk = "Moderate" if risk == "Low" else "High"
+                
+                # Adjust for disease-specific factors
+                if disease_specific_factors:
+                    if risk != "Very High":
+                        risk = "High"
+                
+                return risk
+            
+            # Check for disease-specific risk factors
+            disease_specific_risk = False
+            predicted_disease = disease_labels.get(pred)
+            
+            if predicted_disease == "Thalassemia" and hemoglobin < 9:
+                disease_specific_risk = True
+            elif predicted_disease == "Sickle Cell Anemia" and sickled_rbc > 40:
+                disease_specific_risk = True
+            elif predicted_disease == "Breast Cancer" and (brca1_expression < 0.3 or p53_mutation == 1):
+                disease_specific_risk = True
+            elif predicted_disease == "Cystic Fibrosis" and sweat_chloride > 60:
+                disease_specific_risk = True
+            
+            risk_level = calculate_risk_level(
+                probability,
+                len(warnings),
+                family_history,
+                disease_specific_risk
+            )
+            
             result = True
             form_data = request.form
+            
+            # Convert NumPy types to Python native types before storing in session
+            session['prediction_result'] = {
+                'prediction': int(prediction),
+                'probability': float(probability),
+                'risk_level': risk_level,
+                'result': bool(result),
+                'form_data': dict(request.form)
+            }
+            return redirect(url_for('predict'))
         except Exception as e:
             flash(f"Error in prediction: {str(e)}", "error")
+    # Only pass form_data if POST, otherwise None (so form is blank on refresh)
+    if request.method == "POST":
+        fd = form_data
+    else:
+        fd = None
+    # If redirected after POST, get result from session
+    prediction_result = session.pop('prediction_result', None)
+    if prediction_result:
+        return render_template("predict.html", 
+                             result=prediction_result['result'], 
+                             prediction=prediction_result['prediction'], 
+                             probability=prediction_result['probability'],
+                             risk_level=prediction_result['risk_level'], 
+                             form_data=prediction_result['form_data'],
+                             disease_labels=disease_labels,
+                             disease_info=disease_info)
     return render_template("predict.html", 
-                         result=result, 
-                         prediction=prediction, 
-                         probability=probability, 
-                         form_data=form_data,
+                         result=None, 
+                         prediction=None, 
+                         probability=None,
+                         risk_level=None, 
+                         form_data=None,
                          disease_labels=disease_labels,
                          disease_info=disease_info)
 
@@ -259,36 +365,39 @@ def predict():
 @login_required
 def contact():
     success = False
-    name = ""
-    email = ""
-    if 'user' in session:
-        name = f"{session['user'].get('first_name', '')} {session['user'].get('last_name', '')}".strip()
-        email = session['user'].get('email', '')
-
+    user_data = session.get('user', {})
+    name = f"{user_data.get('first_name', '')} {user_data.get('last_name', '')}".strip()
+    email = user_data.get('email', '')
+    
     if request.method == "POST":
         try:
-            subject = request.form.get("subject")
-            message = request.form.get("message")
-            user_id = session['user']['id']
-            # Use pre-filled name and email
-            # If user edits, use form value
-            name = request.form.get("name", name)
-            email = request.form.get("email", email)
+            subject = request.form.get('subject')
+            message = request.form.get('message')
+            
+            if not subject or not message:
+                flash("Subject and message are required.", "error")
+                return render_template("contact.html", success=False, name=name, email=email)
 
-            # Store in Supabase using authenticated client
-            user_client = get_user_client()
-            user_client.table('contact_messages').insert({
-                "user_id": user_id,
+            # Insert directly using supabase client
+            insert_data = {
+                "user_id": user_data.get('id'),
                 "subject": subject,
                 "message": message,
                 "email": email,
                 "name": name
-            }).execute()
+            }
             
-            success = True
-            flash("Your message has been sent successfully!", "success")
+            # Use the global supabase client from models
+            result = supabase.table('contact_messages').insert(insert_data).execute()
+            
+            if result.data:
+                success = True
+                flash("Your message has been sent successfully!", "success")
+            else:
+                flash("Failed to send message.", "error")
+                
         except Exception as e:
-            flash(f"Error sending message: {str(e)}", "error")
+            flash("Error sending message. Please try again.", "error")
             
     return render_template("contact.html", success=success, name=name, email=email)
 
